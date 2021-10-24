@@ -1,0 +1,60 @@
+#define WINVER 0x0502
+#include <iostream>
+#include <windows.h>
+#include <stdio.h>
+#include <tchar.h>
+
+
+
+#define INFO_BUFFER_SIZE 32767
+#define BUFSIZE MAX_PATH
+#define MAX_KEY_LENGTH 255
+using namespace std;
+
+int main()
+{
+SECURITY_ATTRIBUTES attributes;
+attributes.nLength = sizeof(SECURITY_ATTRIBUTES);
+attributes.bInheritHandle = TRUE;
+attributes.lpSecurityDescriptor = NULL;
+HANDLE input_pipe_read_end;
+HANDLE input_pipe_write_end;
+HANDLE output_pipe_read_end;
+HANDLE output_pipe_write_end;
+SetHandleInformation(input_pipe_write_end, HANDLE_FLAG_INHERIT, 0);
+SetHandleInformation(output_pipe_write_end, HANDLE_FLAG_INHERIT, 0);
+CreatePipe(&input_pipe_read_end, &input_pipe_write_end, &attributes, 0);
+CreatePipe(&output_pipe_read_end, &output_pipe_write_end, &attributes, 0);
+STARTUPINFO startup_info;
+ZeroMemory(&startup_info, sizeof(startup_info));
+startup_info.cb = sizeof(startup_info);
+startup_info.hStdInput = input_pipe_read_end;
+startup_info.hStdOutput = output_pipe_write_end;
+startup_info.hStdError = output_pipe_write_end;
+startup_info.dwFlags |= STARTF_USESTDHANDLES;
+PROCESS_INFORMATION pi;
+BOOL result = CreateProcess(NULL,"cmd.exe",NULL,NULL,TRUE,0,NULL,NULL,&startup_info,&pi);
+DWORD bytes_read;
+do {
+    char buffer[64];
+    ReadFile(output_pipe_write_end, buffer, sizeof(buffer), &bytes_read, NULL);
+    fwrite(buffer, bytes_read, 1, stdout);
+    } while (bytes_read != 0);
+const char PLEASE[] = "please";
+
+char* input = NULL;
+char buffer[256];
+while (!input) {
+    fgets(buffer, sizeof(buffer), stdin);
+    if (!strncmp(buffer, "thanks", 6)) {
+        break;
+    }
+    else if (strncmp(buffer, "please", 6)) {
+        fprintf(stderr, "Please ask politely!\n> ");
+    }
+    else {
+        input = buffer + sizeof(PLEASE);
+    }
+}
+return 0;
+}
