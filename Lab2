@@ -35,11 +35,17 @@ startup_info.dwFlags |= STARTF_USESTDHANDLES;
 PROCESS_INFORMATION pi;
 BOOL result = CreateProcess(NULL,"cmd.exe",NULL,NULL,TRUE,0,NULL,NULL,&startup_info,&pi);
 DWORD bytes_read;
+BOOL glavcheck = true;
+do{
+BOOL check = true;
 do {
-    char buffer[64];
-    ReadFile(output_pipe_write_end, buffer, sizeof(buffer), &bytes_read, NULL);
+    char buffer[1];
+    ReadFile(output_pipe_read_end, buffer, sizeof(buffer), &bytes_read, NULL);
     fwrite(buffer, bytes_read, 1, stdout);
-    } while (bytes_read != 0);
+        if (buffer[0] == '>') {
+        check=false;
+        }
+    } while (check==true);
 const char PLEASE[] = "please";
 
 char* input = NULL;
@@ -47,6 +53,14 @@ char buffer[256];
 while (!input) {
     fgets(buffer, sizeof(buffer), stdin);
     if (!strncmp(buffer, "thanks", 6)) {
+        glavcheck=false;
+        UINT lpExitCode ;
+        GetExitCodeProcess(&startup_info,LPDWORD(lpExitCode));
+        TerminateProcess(&startup_info,lpExitCode);
+        CloseHandle(input_pipe_read_end);
+        CloseHandle(input_pipe_write_end);
+        CloseHandle(output_pipe_read_end);
+        CloseHandle(output_pipe_write_end);
         break;
     }
     else if (strncmp(buffer, "please", 6)) {
@@ -54,7 +68,9 @@ while (!input) {
     }
     else {
         input = buffer + sizeof(PLEASE);
+        WriteFile(input_pipe_write_end,input,strlen(input),NULL,NULL);
     }
 }
+}while (glavcheck==true);
 return 0;
 }
